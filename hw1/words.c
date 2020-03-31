@@ -39,6 +39,14 @@ int main(int argc, char *argv[]) {
   /* Create the empty data structure. */
   word_count_list_t word_counts;
   init_words(&word_counts);
+  // printf("successfully initizalied word list!!\n");
+  
+  // // test that add_word() works
+  // auto add_1 = add_word(&word_counts, "hello");
+  // char *word = "world";
+  // auto add_2 = add_word(&word_counts, word);
+  // auto add_3 = add_word(&word_counts, "hello");
+  // fprint_words(&word_counts, stdout);
 
   if (argc <= 1) {
     count_words(&word_counts, stdin);
