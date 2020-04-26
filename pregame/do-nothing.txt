@@ -1,8 +1,20 @@
 1.
-
+0xc0000008
 2.
-
+0x8048757
 3.
+Name of function when it crashed: main
+00000000 <main>:
+
+int
+main (int argc UNUSED, char *argv[] UNUSED)
+{
+  return 162;
+}
+   0:   b8 a2 00 00 00          mov    $0xa2,%eax
+   5:   c3                      ret    
+
+
 
 4.
 
