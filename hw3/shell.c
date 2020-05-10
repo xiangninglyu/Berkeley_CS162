@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -30,6 +31,8 @@ pid_t shell_pgid;
 
 int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
+int cmd_pwd(struct tokens *tokens);
+int cmd_cd(struct tokens *tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -44,6 +47,8 @@ typedef struct fun_desc {
 fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_exit, "exit", "exit the command shell"},
+  {cmd_pwd, "pwd", "show the current working directory"},
+  {cmd_cd, "cd", "change current working directory to the first argument"}
 };
 
 /* Prints a helpful description for the given command */
@@ -56,6 +61,29 @@ int cmd_help(unused struct tokens *tokens) {
 /* Exits this shell */
 int cmd_exit(unused struct tokens *tokens) {
   exit(0);
+}
+
+int cmd_pwd(unused struct tokens *tokens) {
+  char cwd[100];
+   if (getcwd(cwd, sizeof(cwd)) != NULL) {
+       printf("%s\n", cwd);
+   } else {
+       perror("getcwd() error");
+       return 1;
+   }
+   return 0;
+}
+
+int cmd_cd(unused struct tokens *tokens) {
+  assert(strcmp(tokens_get_token(tokens, 0), "cd") == 0);
+  char *path = tokens_get_token(tokens, 1);
+  printf("Changing working dir to %s\n", path);
+  if (chdir(path) != 0) {
+    perror("chdir() failed.");
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 /* Looks up the built-in command, if it exists. */
