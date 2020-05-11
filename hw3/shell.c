@@ -140,8 +140,24 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-      /* REPLACE this to run commands as programs. */
-      fprintf(stdout, "This shell doesn't know how to run programs.\n");
+      char *args[10]; // 10 args at most
+      int position = 0;
+      char *token;
+      while ((token = tokens_get_token(tokens, position)) != NULL) {
+        args[position++] = token;
+      }
+      args[position] = NULL;  // must add NULL to the end of args!! :(
+      int pid = fork();
+      if (pid == 0) {
+        // child process
+        if (execv(args[0], args) != 0) {
+          perror("Program failed.");
+        }
+        exit(0);
+      } else {
+        // parent process
+        wait(pid);
+      }
     }
 
     if (shell_is_interactive)
