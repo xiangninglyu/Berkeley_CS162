@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <dirent.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -29,10 +30,14 @@ struct termios shell_tmodes;
 /* Process group id for the shell */
 pid_t shell_pgid;
 
+/* PATH env variable to hold search paths for programs */
+char *PATH;
+
 int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
 int cmd_pwd(struct tokens *tokens);
 int cmd_cd(struct tokens *tokens);
+int cmd_export(struct tokens *tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -48,7 +53,8 @@ fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_exit, "exit", "exit the command shell"},
   {cmd_pwd, "pwd", "show the current working directory"},
-  {cmd_cd, "cd", "change current working directory to the first argument"}
+  {cmd_cd, "cd", "change current working directory to the first argument"},
+  {cmd_export, "export", "export PATH to add directory to program search index"},
 };
 
 /* Prints a helpful description for the given command */
@@ -86,6 +92,16 @@ int cmd_cd(unused struct tokens *tokens) {
   }
 }
 
+int cmd_export(unused struct tokens *tokens) {
+  assert(strcmp(tokens_get_token(tokens, 0), "export") == 0);
+  char *arg = tokens_get_token(tokens, 1);
+  char *path = strtok(arg, ":");
+  path = strtok(path, "=");
+  path = strtok(NULL, "=");
+  char *const_colon = ":";
+  PATH = strcat(strcat(path, const_colon), PATH);
+}
+
 /* Looks up the built-in command, if it exists. */
 int lookup(char cmd[]) {
   for (unsigned int i = 0; i < sizeof(cmd_table) / sizeof(fun_desc_t); i++)
@@ -98,6 +114,9 @@ int lookup(char cmd[]) {
 void init_shell() {
   /* Our shell is connected to standard input. */
   shell_terminal = STDIN_FILENO;
+
+  // PATH initialization
+  PATH = "/usr/bin";
 
   /* Check if we are running interactively */
   shell_is_interactive = isatty(shell_terminal);
@@ -117,6 +136,24 @@ void init_shell() {
 
     /* Save the current termios to a variable, so it can be restored later. */
     tcgetattr(shell_terminal, &shell_tmodes);
+  }
+}
+
+bool is_in_path(const char *prog, const char *path) {
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir(path)) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      if (strcmp(ent->d_name, prog) == 0) {
+        closedir(dir);
+        return true;
+      }
+    }
+    closedir(dir);
+    return false;
+  } else {
+    perror("Error happened in opening path");
+    return false;
   }
 }
 
@@ -147,6 +184,22 @@ int main(unused int argc, unused char *argv[]) {
         args[position++] = token;
       }
       args[position] = NULL;  // must add NULL to the end of args!! :(
+      // process the first arg (path) if resolving to finding program in PATH
+      if (!(strlen(args[0]) > 0 && args[0][0] == '/')) {
+        char *path = strtok(PATH, ":");
+        while (path) {
+          if (is_in_path(args[0], path)) {
+            char *const_str = "/";
+            char *program = malloc(strlen(path) + 2 + strlen(args[0]));
+            strcpy(program, path);
+            strcat(program, const_str);
+            strcat(program, args[0]);
+            args[0] = program;
+            break;
+          }
+          path = strtok(NULL, ":");
+        }
+      }
       int pid = fork();
       if (pid == 0) {
         // child process
