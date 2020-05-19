@@ -178,10 +178,28 @@ int main(unused int argc, unused char *argv[]) {
       cmd_table[fundex].fun(tokens);
     } else {
       char *args[10]; // 10 args at most
+      char *in_file = NULL; // store usr provided file for redirecting stdin stdout if provided
+      char *out_file = NULL;
       int position = 0;
       char *token;
       while ((token = tokens_get_token(tokens, position)) != NULL) {
+        if (strcmp(token, ">") == 0) {
+          out_file = tokens_get_token(tokens, ++position);
+          printf("outfile: %s\n", out_file);
+          // position++;
+          // continue;
+          break;
+        } else if (strcmp(token, "<") == 0) {
+          in_file = tokens_get_token(tokens, ++position);
+          printf("infile: %s\n", in_file);
+          args[position++] = "<";
+          args[position++] = in_file;
+          // position++;
+          // continue;
+          break;
+        }
         args[position++] = token;
+        printf("added token to args: %s\n", token);
       }
       args[position] = NULL;  // must add NULL to the end of args!! :(
       // process the first arg (path) if resolving to finding program in PATH
@@ -203,6 +221,20 @@ int main(unused int argc, unused char *argv[]) {
       int pid = fork();
       if (pid == 0) {
         // child process
+        if (out_file) {
+          FILE *new_fd = fopen(out_file, "wb");
+          dup2(fileno(new_fd), STDOUT_FILENO);
+          fclose(new_fd);
+          printf("@@ sharon out dup2 ok.\n");
+        }
+        if (in_file) {
+          fclose(in_file);
+          FILE *new_fd = fopen(in_file, "rb");
+          dup2(fileno(new_fd), STDIN_FILENO);
+          fclose(new_fd);
+          printf("@@ sharon in dup2 ok.\n");
+        }
+        
         if (execv(args[0], args) != 0) {
           perror("Program failed.");
         }
